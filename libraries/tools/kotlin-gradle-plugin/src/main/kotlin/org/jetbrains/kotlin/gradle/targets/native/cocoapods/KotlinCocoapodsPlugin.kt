@@ -217,7 +217,10 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
                     interop.packageName = "cocoapods.${pod.moduleName}"
 
 
-                    if (project.findProperty(TARGET_PROPERTY) == null && project.findProperty(CONFIGURATION_PROPERTY) == null) {
+                    if (isAvailableToProduceSynthetic && project.findProperty(TARGET_PROPERTY) == null && project.findProperty(
+                            CONFIGURATION_PROPERTY
+                        ) == null
+                    ) {
                         val podBuildTaskProvider = project.tasks.named(target.toBuildDependenciesTaskName, PodBuildTask::class.java)
                         interopTask.inputs.file(podBuildTaskProvider.get().buildSettingsFileProvider)
                         interopTask.dependsOn(podBuildTaskProvider)
@@ -239,7 +242,10 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
                         // Since we cannot expand the configuration phase of interop tasks
                         // receiving the required environment variables happens on execution phase.
                         // TODO This needs to be fixed to improve UP-TO-DATE checks.
-                        if (project.findProperty(TARGET_PROPERTY) == null && project.findProperty(CONFIGURATION_PROPERTY) == null) {
+                        if (isAvailableToProduceSynthetic
+                            && project.findProperty(TARGET_PROPERTY) == null
+                            && project.findProperty(CONFIGURATION_PROPERTY) == null
+                        ) {
                             val podBuildTaskProvider = project.tasks.named(target.toBuildDependenciesTaskName, PodBuildTask::class.java)
                             val buildSettings =
                                 podBuildTaskProvider.get().buildSettingsFileProvider.get()
@@ -400,11 +406,21 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
             registerDummyFrameworkTask(project, cocoapodsExtension)
             createSyncTask(project, kotlinExtension)
             registerPodspecTask(project, cocoapodsExtension)
-            registerPodGenTask(project, kotlinExtension, cocoapodsExtension)
-            registerPodInstallTask(project, cocoapodsExtension)
-            registerPodSetupBuildTasks(project, kotlinExtension, cocoapodsExtension)
-            registerPodBuildTasks(project, kotlinExtension, cocoapodsExtension)
-            registerPodImportTask(project, kotlinExtension)
+            if (isAvailableToProduceSynthetic) {
+                registerPodGenTask(project, kotlinExtension, cocoapodsExtension)
+                registerPodInstallTask(project, cocoapodsExtension)
+                registerPodSetupBuildTasks(project, kotlinExtension, cocoapodsExtension)
+                registerPodBuildTasks(project, kotlinExtension, cocoapodsExtension)
+                registerPodImportTask(project, kotlinExtension)
+            } else {
+                logger.quiet(
+                    """
+                    To take advantage of the new functionality for Cocoapods Integration like synchronizing with the Xcode project 
+                    and supporting dependencies on pods, please install the `cocoapods-generate` plugin for CocoaPods 
+                    by calling `gem install cocoapods-generate` in terminal.
+                """.trimIndent()
+                )
+            }
             createInterops(project, kotlinExtension, cocoapodsExtension)
         }
     }
@@ -436,5 +452,14 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
         // so we should generate a fat framework with arm32 and arm64 binaries.
         const val KOTLIN_TARGET_FOR_IOS_DEVICE = "ios_arm"
         const val KOTLIN_TARGET_FOR_WATCHOS_DEVICE = "watchos_arm"
+
+        private val isAvailableToProduceSynthetic: Boolean by lazy {
+            val gemListProcess = ProcessBuilder("gem", "list").apply {
+                directory()
+            }.start()
+            val gemListRetCode = gemListProcess.waitFor()
+            val gemListOutput = gemListProcess.inputStream.reader().readText()
+            gemListRetCode == 0 && gemListOutput.contains("cocoapods-generate")
+        }
     }
 }
