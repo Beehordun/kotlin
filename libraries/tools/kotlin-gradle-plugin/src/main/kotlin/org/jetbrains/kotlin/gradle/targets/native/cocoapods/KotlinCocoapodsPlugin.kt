@@ -417,7 +417,9 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
                     """
                     To take advantage of the new functionality for Cocoapods Integration like synchronizing with the Xcode project 
                     and supporting dependencies on pods, please install the `cocoapods-generate` plugin for CocoaPods 
-                    by calling `gem install cocoapods-generate` in terminal.
+                    by calling `gem install cocoapods-generate` in terminal. 
+                    
+                    More details are available by https://github.com/square/cocoapods-generate
                 """.trimIndent()
                 )
             }
@@ -453,13 +455,14 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
         const val KOTLIN_TARGET_FOR_IOS_DEVICE = "ios_arm"
         const val KOTLIN_TARGET_FOR_WATCHOS_DEVICE = "watchos_arm"
 
-        private val isAvailableToProduceSynthetic: Boolean by lazy {
-            val gemListProcess = ProcessBuilder("gem", "list").apply {
-                directory()
-            }.start()
-            val gemListRetCode = gemListProcess.waitFor()
-            val gemListOutput = gemListProcess.inputStream.reader().readText()
-            gemListRetCode == 0 && gemListOutput.contains("cocoapods-generate")
-        }
+        private val isAvailableToProduceSynthetic: Boolean
+            get() {
+                val gemListProcess = ProcessBuilder("gem", "list").apply {
+                    directory()
+                }.start()
+                val gemListRetCode = gemListProcess.waitFor()
+                val gemListOutput = gemListProcess.inputStream.reader().readText()
+                return gemListRetCode == 0 && gemListOutput.contains("cocoapods-generate")
+            }
     }
 }

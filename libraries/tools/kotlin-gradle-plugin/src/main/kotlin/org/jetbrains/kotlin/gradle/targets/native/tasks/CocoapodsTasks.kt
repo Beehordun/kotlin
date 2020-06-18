@@ -7,15 +7,19 @@
 package org.jetbrains.kotlin.gradle.tasks
 
 import org.gradle.api.DefaultTask
+import org.gradle.api.Project
+import org.gradle.api.plugins.ExtensionAware
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.*
 import org.gradle.api.tasks.wrapper.Wrapper
+import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+import org.jetbrains.kotlin.gradle.dsl.multiplatformExtensionOrNull
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.CocoapodsExtension
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.KotlinCocoapodsPlugin
+import org.jetbrains.kotlin.gradle.plugin.cocoapods.KotlinCocoapodsPlugin.Companion.COCOAPODS_EXTENSION_NAME
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.KotlinCocoapodsPlugin.Companion.GENERATE_WRAPPER_PROPERTY
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.KotlinCocoapodsPlugin.Companion.KOTLIN_TARGET_FOR_IOS_DEVICE
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.KotlinCocoapodsPlugin.Companion.KOTLIN_TARGET_FOR_WATCHOS_DEVICE
-import org.jetbrains.kotlin.gradle.plugin.cocoapods.KotlinCocoapodsPlugin.Companion.POD_SPEC_TASK_NAME
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.KotlinCocoapodsPlugin.Companion.SYNC_TASK_NAME
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.asValidFrameworkName
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.cocoapodsBuildDirs
@@ -123,7 +127,7 @@ open class PodspecTask : DefaultTask() {
         """.trimMargin()
             )
 
-            if (hasPodfileOwnOrParent) {
+            if (hasPodfileOwnOrParent(project)) {
                 logger.quiet(
                     """
                     Generated a podspec file at: ${absolutePath}.
@@ -138,14 +142,15 @@ open class PodspecTask : DefaultTask() {
         }
     }
 
-    private val hasPodfileOwnOrParent: Boolean
-        get() = if (project.rootProject == project) cocoapodsExtension.podfile != null
-        else cocoapodsExtension.podfile != null
-                || (
-                project.parent?.tasks?.findByName(POD_SPEC_TASK_NAME)?.let {
-                    project.parent?.tasks?.named(POD_SPEC_TASK_NAME, PodspecTask::class.java)?.get()?.hasPodfileOwnOrParent
-                } ?: false
-                )
+    companion object {
+        private val KotlinMultiplatformExtension?.cocoapodsExtensionOrNull: CocoapodsExtension?
+            get() = (this as? ExtensionAware)?.extensions?.findByName(COCOAPODS_EXTENSION_NAME) as? CocoapodsExtension
+
+        private fun hasPodfileOwnOrParent(project: Project): Boolean =
+            if (project.rootProject == project) project.multiplatformExtensionOrNull?.cocoapodsExtensionOrNull?.podfile != null
+            else project.multiplatformExtensionOrNull?.cocoapodsExtensionOrNull?.podfile != null
+                    || (project.parent?.let { hasPodfileOwnOrParent(it) } ?: false)
+    }
 }
 
 

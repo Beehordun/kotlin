@@ -36,10 +36,10 @@ internal val KotlinNativeTarget.toValidSDK: String
 
 internal val KotlinNativeTarget.platformLiteral: String
     get() = when (konanTarget.family) {
-        Family.OSX -> "macOS"
-        Family.IOS -> "iOS"
-        Family.TVOS -> "tvOS"
-        Family.WATCHOS -> "watchOS"
+        Family.OSX -> "macos"
+        Family.IOS -> "ios"
+        Family.TVOS -> "tvos"
+        Family.WATCHOS -> "watchos"
         else -> throw IllegalArgumentException("Unsupported native target '${konanTarget.name}'")
     }
 
@@ -129,7 +129,7 @@ open class PodGenTask : CocoapodsWithSyntheticTask() {
 
         val podGenProcessArgs = listOfNotNull(
             "pod", "gen",
-            "--platforms=${kotlinNativeTarget.platformLiteral.toLowerCase()}",
+            "--platforms=${kotlinNativeTarget.platformLiteral}",
             "--gen-directory=${project.cocoapodsBuildDirs.synthetic(kotlinNativeTarget).absolutePath}",
             localPodspecPaths.takeIf { it.isNotEmpty() }?.joinToString(separator = ",")?.let { "--local-sources=$it" },
             podspecProvider.get().name
@@ -142,15 +142,18 @@ open class PodGenTask : CocoapodsWithSyntheticTask() {
         val outputText = podGenProcess.inputStream.reader().readText()
 
         check(podGenRetCode == 0) {
-            listOf(
+            listOfNotNull(
                 "Executing of '${podGenProcessArgs.joinToString(" ")}' failed with code $podGenRetCode and message:",
                 outputText,
-                outputText.takeIf { it.contains("deployment target") }?.let {
+                outputText.takeIf {
+                    it.contains("deployment target")
+                            || it.contains("requested platforms: [\"${kotlinNativeTarget.platformLiteral}\"]")
+                }?.let {
                     """
                         Tip: try to configure deployment_target for ALL targets as follows:
                         cocoapods {
                             ...
-                            ${kotlinNativeTarget.platformLiteral.toLowerCase()}.deploymentTarget = "..."
+                            ${kotlinNativeTarget.konanTarget.family.name.toLowerCase()}.deploymentTarget = "..."
                             ...
                         }
                     """.trimIndent()
